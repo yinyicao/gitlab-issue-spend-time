@@ -23,17 +23,17 @@ GET：`http://127.0.0.1:5000/getDatas`
       "name": "张三",
       "avatar_url": "https://avatar-stl.gitlab.com/email/zhangshan/avatar.png",
       "time": 7
-    }，
+    },
     {
       "name": "李四",
       "avatar_url": "https://avatar-stl.gitlab.com/email/lisi/avatar.png",
       "time": 7
     }
   ],
-  “2021-01-06”: [
-      ...
+  "2021-01-06": [
+      //more...
   ],
-  ....
+  //more....
 }
 ```
 
