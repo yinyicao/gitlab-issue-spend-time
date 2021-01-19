@@ -4,7 +4,7 @@ import time,datetime
 import re
 
 class GitlabApi:
-    project_url = 'https://git.cae.com/api/v4/projects'
+    project_url = 'https://xxx.com/api/v4/projects'
     headers = {'PRIVATE-TOKEN':''}
     def __init__(self,name):
         self.name = name
