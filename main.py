@@ -14,6 +14,17 @@ def getProjects():
     api = GitlabApi('ycyin')
     return api.getProjects()
 
+@app.route('/issues',methods=['GET'])
+def getIssues():
+    api = GitlabApi('ycyin')
+    return api.getIssues()
+
+
+@app.route('/issueNotesHasTime',methods=['GET'])
+def getIssueNotesHasTime():
+    api = GitlabApi('ycyin')
+    return api.getIssueNotesHasTime()  
+
 
 @app.route('/projectIds',methods=['GET'])
 def getProjectIds():

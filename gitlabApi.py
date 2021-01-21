@@ -1,17 +1,39 @@
 #_*_ coding:utf-8 _*_
-import requests,json
+import requests,json, ujson
 import time,datetime
 import re
+import gitlab
+#https://python-gitlab.readthedocs.io/en/stable/
 
 class GitlabApi:
-    project_url = 'https://xxx.com/api/v4/projects'
-    headers = {'PRIVATE-TOKEN':''}
+    gitlab_url = 'https://xxx.com'
+    gitlab_private_token = ''
+    gl = gitlab.Gitlab(url=gitlab_url, private_token = gitlab_private_token,ssl_verify=False)
     def __init__(self,name):
         self.name = name
 
     def getProjects(self):
-        r = requests.get(self.project_url,headers=self.headers,verify=False)
-        return r.content
+        # r = requests.get(self.project_url,headers=self.headers,verify=False)
+        projects = self.gl.projects.list(all=True)
+        for project in projects:
+            print(project.name)
+
+    def getIssues(self):
+        issues = self.gl.issues.list(updated_after='2020-12-15T08:00:00Z',scope='all',all=True)
+        for issue in issues:
+            print(issue.title,issue.updated_at)
+        return issues    
+
+    def getIssueNotesHasTime(self):
+        allNotes = []
+        for issue in self.gl.issues.list(updated_after='2020-12-15T08:00:00Z',scope='all',all=True):
+            project_issue = self.gl.projects.get(issue.project_id, lazy=True).issues.get(issue.iid, lazy=True)
+            i_notes = project_issue.notes.list()
+            for i_note in i_notes:
+                rr=re.findall(r"[subtracted|added](.+?)of time spent at", i_note.body)
+                if len(rr) != 0:
+                    allNotes.append(i_note)
+        return allNotes   
 
     def getProjectIds(self):
         projects  = json.loads(self.getProjects())
@@ -32,7 +54,6 @@ class GitlabApi:
             # now_date = datetime.datetime.strptime('2021-1-13',"%Y-%m-%d").strftime("%Y-%m-%d")
             # 当前日期减少15天
             fifteenDayAgo = (datetime.datetime.now() - datetime.timedelta(days=15)).strftime("%Y-%m-%d")
-            print(fifteenDayAgo)
             created_at_date = datetime.datetime.strptime(_issue['created_at'],"%Y-%m-%dT%H:%M:%S.%f+08:00").strftime("%Y-%m-%d")
             # 转为时间戳
             fifteenDayAgo2 = time.mktime(time.strptime(fifteenDayAgo,"%Y-%m-%d"))
@@ -75,40 +96,49 @@ class GitlabApi:
 
     # 根据Issue Notes统计数据
     def getDatas(self):
-        _notes = json.loads(self.getIssueAddTime())
+        _notes = self.getIssueNotesHasTime()
         datas = {}
         for _note in _notes:
             data = []
             person = {}
-            addhours = re.findall(r"added(.+?)of time spent at", _note['body'])
-            subhours = re.findall(r"subtracted(.+?)of time spent at", _note['body'])
-            date = re.search(r"(\d{4}-\d{1,2}-\d{1,2})", _note['body'])
+            addhours = re.findall(r"added(.+?)of time spent at", _note.body)
+            subhours = re.findall(r"subtracted(.+?)of time spent at", _note.body)
+            date = re.search(r"(\d{4}-\d{1,2}-\d{1,2})", _note.body)
             # /spend 7h 
             if len(addhours) != 0:
-                strTime = re.findall(r"(.+?)h", addhours[0].strip())[0]
+                strTimeArr = re.findall(r"(.+?)h", addhours[0].strip())
+                print(strTimeArr)
+                intTime = 0
+                ## 确定只有一个值
+                if len(strTimeArr) != 0:
+                    intTime = int(strTimeArr[0])
                 ## 获取已经存在的日期数据
                 ndata = datas.get(date[0],-1)
                 if(ndata != -1):
                     ## 存在 取对应人的数据
                     flag = False
                     for p in ndata:
-                        if p['name'] == _note['author']['name']:
+                        if p['name'] == _note.author['name']:
                             flag = True
-                            p['time'] = p['time'] + int(strTime)
+                            p['time'] = p['time'] + intTime
                     if flag == False:
-                        person['name'] = _note['author']['name']
-                        person['avatar_url'] = _note['author']['avatar_url']
-                        person['time'] = int(strTime)
+                        person['name'] = _note.author['name']
+                        person['avatar_url'] = _note.author['avatar_url']
+                        person['time'] = intTime
                         ndata.append(person)
                 else:
-                    person['name'] = _note['author']['name']
-                    person['avatar_url'] = _note['author']['avatar_url']
-                    person['time'] = int(strTime)
+                    person['name'] = _note.author['name']
+                    person['avatar_url'] = _note.author['avatar_url']
+                    person['time'] = intTime
                     data.append(person)
                     datas[date[0]] = data
             # /spend -7h        
             if len(subhours) != 0:
-                strTime = re.findall(r"(.+?)h", subhours[0].strip())[0]
+                strTimeArr = re.findall(r"(.+?)h", subhours[0].strip())
+                intTime = 0
+                ## 确定只有一个值
+                if len(strTimeArr) != 0:
+                    intTime = int(strTimeArr[0])
                 ## 获取已经存在的日期数据
                 ndata = datas.get(date[0],-1)
                 if(ndata != -1):
@@ -116,18 +146,18 @@ class GitlabApi:
                     ## flag标识是否有对应人的数据
                     flag = False
                     for p in ndata:
-                        if p['name'] == _note['author']['name']:
+                        if p['name'] == _note.author['name']:
                             flag = True
-                            p['time'] = p['time'] - int(strTime)
+                            p['time'] = p['time'] - intTime
                     if flag == False:
-                        person['name'] = _note['author']['name']
-                        person['avatar_url'] = _note['author']['avatar_url']
-                        person['time'] = 0 - int(strTime)
+                        person['name'] = _note.author['name']
+                        person['avatar_url'] = _note.author['avatar_url']
+                        person['time'] = 0 - intTime
                         ndata.append(person) 
                 else:
-                    person['name'] = _note['author']['name']
-                    person['avatar_url'] = _note['author']['avatar_url']
-                    person['time'] = 0 - int(strTime)
+                    person['name'] = _note.author['name']
+                    person['avatar_url'] = _note.author['avatar_url']
+                    person['time'] = 0 - intTime
                     data.append(person)
                     datas[date[0]] = data   
         # 排序
