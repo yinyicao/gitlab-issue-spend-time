@@ -1,8 +1,6 @@
 #_*_ coding:utf-8 _*_
-import requests,json, ujson
-import time,datetime
-import re
-import gitlab
+import re, ujson,gitlab
+from Utils import dateTimeUtil
 #https://python-gitlab.readthedocs.io/en/stable/
 
 class GitlabApi:
@@ -12,91 +10,56 @@ class GitlabApi:
     def __init__(self,name):
         self.name = name
 
-    def getProjects(self):
-        # r = requests.get(self.project_url,headers=self.headers,verify=False)
-        projects = self.gl.projects.list(all=True)
-        for project in projects:
-            print(project.name)
 
-    def getIssues(self):
-        issues = self.gl.issues.list(updated_after='2020-12-15T08:00:00Z',scope='all',all=True)
-        for issue in issues:
-            print(issue.title,issue.updated_at)
-        return issues    
+    def getIssuesUpdatedDaysAgo(self,days=0):
+        ## '2020-12-15T08:00:00Z'
+        updated_after_time = dateTimeUtil.getIsoLocalDateTimeAgo(days)
+        return self.gl.issues.list(updated_after=updated_after_time,scope='all',all=True)    
 
-    def getIssueNotesHasTime(self):
+    def getIssueNotesSevenDaysAgo(self):
         allNotes = []
-        for issue in self.gl.issues.list(updated_after='2020-12-15T08:00:00Z',scope='all',all=True):
+        for issue in self.getIssuesUpdatedDaysAgo(15):
             project_issue = self.gl.projects.get(issue.project_id, lazy=True).issues.get(issue.iid, lazy=True)
             i_notes = project_issue.notes.list()
             for i_note in i_notes:
                 rr=re.findall(r"[subtracted|added](.+?)of time spent at", i_note.body)
+                # 取包含subtracted|added信息的issue note
                 if len(rr) != 0:
-                    allNotes.append(i_note)
-        return allNotes   
+                    # 将issue note的updated_at时间转为时间戳
+                    i_note_date_timestamp = dateTimeUtil.toTimeStampWithFormatFromisoformat(i_note.updated_at)
+                    # 将当前时间前x天的日期时间转换为时间戳
+                    seven_days_ago_date_timestamp = dateTimeUtil.toTimeStampWithFormatFromisoformat(dateTimeUtil.getIsoLocalDateTimeAgo(15))
+                    # 取近x天的issue note
+                    if i_note_date_timestamp >= seven_days_ago_date_timestamp:
+                        allNotes.append(i_note)
+        return allNotes
 
-    def getProjectIds(self):
-        projects  = json.loads(self.getProjects())
-        ids = []
-        for project in projects:
-            ids.append(project['id'])   
-        return json.dumps(ids)
-    
-    # 获取近15天的Issue
-    def getIssueWithUpdateTodayAndOpend(self):
-        ids = json.loads(self.getProjectIds())
-        issues = []
-        for _id in ids:
-          r = requests.get(self.project_url+"/"+str(_id)+"/issues",headers=self.headers,verify=False)
-          _issues = json.loads(r.content)
-          for _issue in _issues:
-            # now_date = datetime.datetime.now().strftime("%Y-%m-%d")
-            # now_date = datetime.datetime.strptime('2021-1-13',"%Y-%m-%d").strftime("%Y-%m-%d")
-            # 当前日期减少15天
-            fifteenDayAgo = (datetime.datetime.now() - datetime.timedelta(days=15)).strftime("%Y-%m-%d")
-            created_at_date = datetime.datetime.strptime(_issue['created_at'],"%Y-%m-%dT%H:%M:%S.%f+08:00").strftime("%Y-%m-%d")
-            # 转为时间戳
-            fifteenDayAgo2 = time.mktime(time.strptime(fifteenDayAgo,"%Y-%m-%d"))
-            created_at_date2 = time.mktime(time.strptime(created_at_date,"%Y-%m-%d"))
-            # if now_date == created_at_date:
-            if created_at_date2 >= fifteenDayAgo2:
-                issues.append(_issue)
-        return json.dumps(issues)
+ 
+    def getDatasWithDict(self):
+        """
+            根据Issue Notes统计数据，以Dict返回
+            数据格式：
+                {
+                "2021-01-15": [
+                    {
+                    "name": "张三",
+                    "avatar_url": "https://xxx.x/email/zhangsan/avatar.png",
+                    "time": 7
+                    },
+                    {
+                    "name": "李四",
+                    "avatar_url": "https://xxx.x/email/lisi/avatar.png",
+                    "time": 7
+                    },
+                    // ...
+                ],
+                "2021-01-18": [
 
-    # 获取包含近15天的记录信息的Issue Notes
-    def getIssueNotes(self):
-        issues = json.loads(self.getIssueWithUpdateTodayAndOpend())
-        allNotes = []
-        for _issue in issues:
-            r = requests.get(self.project_url+"/"+str(_issue['project_id'])+"/issues/"+str(_issue['iid'])+"/notes",headers=self.headers,verify=False)
-            _notes = json.loads(r.content)
-            for _note in _notes:
-                # now_date = datetime.datetime.now().strftime("%Y-%m-%d")
-                # now_date = datetime.datetime.strptime('2021-1-13',"%Y-%m-%d").strftime("%Y-%m-%d")
-                # 当前日期减少15天
-                fifteenDayAgo = (datetime.datetime.now() - datetime.timedelta(days=15)).strftime("%Y-%m-%d")
-                created_at_date = datetime.datetime.strptime(_issue['created_at'],"%Y-%m-%dT%H:%M:%S.%f+08:00").strftime("%Y-%m-%d")
-                # 转为时间戳
-                fifteenDayAgo2 = time.mktime(time.strptime(fifteenDayAgo,"%Y-%m-%d"))
-                created_at_date2 = time.mktime(time.strptime(created_at_date,"%Y-%m-%d"))
-                # if now_date == created_at_date:
-                if created_at_date2 >= fifteenDayAgo2:
-                        allNotes.append(_note)
-        return json.dumps(allNotes)
-
-    # 获取包含报工信息的Issue Notes
-    def getIssueAddTime(self):
-        _notes = json.loads(self.getIssueNotes())
-        allNotes = []
-        for _note in _notes:
-            rr=re.findall(r"[subtracted|added](.+?)of time spent at", _note['body'])
-            if len(rr) != 0:
-                allNotes.append(_note)
-        return json.dumps(allNotes)
-
-    # 根据Issue Notes统计数据
-    def getDatas(self):
-        _notes = self.getIssueNotesHasTime()
+                ],
+                // ...
+                }
+        """
+        _notes = self.getIssueNotesSevenDaysAgo()
         datas = {}
         for _note in _notes:
             data = []
@@ -107,7 +70,6 @@ class GitlabApi:
             # /spend 7h 
             if len(addhours) != 0:
                 strTimeArr = re.findall(r"(.+?)h", addhours[0].strip())
-                print(strTimeArr)
                 intTime = 0
                 ## 确定只有一个值
                 if len(strTimeArr) != 0:
@@ -165,7 +127,72 @@ class GitlabApi:
         for i in sorted(datas):
             result[i] = datas[i] 
 
-        return json.dumps(result)
+        return ujson.dumps(result)
+
+    
+    def handleSpendTime(self,_person,_date,_time):
+        """
+            处理数据
+        """
+        # 从已知的字典中获取数据，获取到累加，未获取到新增
+        ndataTime = _person.get(_date,-1)
+        if(ndataTime != -1):
+            _person[_date] = ndataTime + _time
+        else:
+            _person[_date] = _time
+
+
+    def getDatasWithList(self):
+        """
+        根据Issue Notes统计数据,以List返回
+        数据格式：
+            [
+                {
+                    "name": "张三",
+                    "avatar_url": "https://xxx.x/email/zhangsan/avatar.png",
+                    "2021-01-21": 7,
+                    "2021-01-20": 7,
+                    // ...
+                },
+                {
+                    "name": "尹以操",
+                    "avatar_url": "https://xxx.x/email/lisi/avatar.png",
+                    "2021-01-21": 7,
+                    // ...
+                },
+                // ...
+                ]
+        """
+        _notes = self.getIssueNotesSevenDaysAgo()
+        datas = {}
+        for _note in _notes:
+            # 获取一个存在的以姓名为key的value 或者创建一个新的
+            person = datas.get(_note.author['name'],{'name':_note.author['name'],'avatar_url':_note.author['avatar_url']})
+            addhours = re.findall(r"added(.+?)of time spent at", _note.body)
+            subhours = re.findall(r"subtracted(.+?)of time spent at", _note.body)
+            date = re.search(r"(\d{4}-\d{1,2}-\d{1,2})", _note.body)
+            # /spend 7h 
+            if len(addhours) != 0:
+                strTimeArr = re.findall(r"(.+?)h", addhours[0].strip())
+                ## 确定只有一个值
+                if len(strTimeArr) != 0:
+                    intTime = int(strTimeArr[0])
+                    self.handleSpendTime(person,date[0],intTime)
+            # /spend -7h    
+            if len(subhours) != 0:
+                strTimeArr = re.findall(r"(.+?)h", subhours[0].strip())
+                ## 确定只有一个值
+                if len(strTimeArr) != 0:
+                    intTime = 0 - int(strTimeArr[0])  
+                    self.handleSpendTime(person,date[0],intTime)
+
+            # append to datas
+            datas[person['name']] = person
+        # the values() menthod in Python 3 no longer returns an array, instead we have a dict_values wrapper around the data.
+        # https://stackoverflow.com/questions/16228248/how-can-i-get-list-of-values-from-dict    
+        result = list(datas.values()) 
+
+        return ujson.dumps(result)
 
 if __name__ == "__main__":
     pass
