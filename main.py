@@ -8,9 +8,13 @@ from gitlabApi import GitlabApi
 
 app = Flask(__name__)
 
+@app.route('/getDatas',methods=['GET'])
+def getDatasWithDict():
+    api = GitlabApi('ycyin')
+    return api.getDatasWithDict()
 
 @app.route('/spendTimeDatas',methods=['GET'])
-def getDatas():
+def getDatasWithList():
     api = GitlabApi('ycyin')
     return api.getDatasWithList() 
 

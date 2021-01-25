@@ -28,7 +28,7 @@ class GitlabApi:
                     # 将issue note的updated_at时间转为时间戳
                     i_note_date_timestamp = dateTimeUtil.toTimeStampWithFormatFromisoformat(i_note.updated_at)
                     # 将当前时间前x天的日期时间转换为时间戳
-                    seven_days_ago_date_timestamp = dateTimeUtil.toTimeStampWithFormatFromisoformat(dateTimeUtil.getIsoLocalDateTimeAgo(15))
+                    seven_days_ago_date_timestamp = dateTimeUtil.toTimeStampWithFormatFromisoformat(dateTimeUtil.getIsoLocalDateTimeAgo(7))
                     # 取近x天的issue note
                     if i_note_date_timestamp >= seven_days_ago_date_timestamp:
                         allNotes.append(i_note)
