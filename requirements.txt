@@ -1,0 +1,4 @@
+ujson==4.0.1
+Flask==1.1.2
+python_gitlab==2.5.0
+gitlab==1.0.2
