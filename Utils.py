@@ -6,6 +6,7 @@ class dateTimeUtil:
     def getLocalDateTime():
         """
             获取本地当前时间
+            :return: example '2021-01-27 09:57:56.727491'
         """
         return datetime.datetime.now()
 
@@ -26,15 +27,18 @@ class dateTimeUtil:
     @staticmethod
     def getLDTWithoutMS():
         """
-            获取本地当前时间(无毫秒) getLocalDateTimeWithoutMicrosecond
+            getLocalDateTimeWithoutMicrosecond
+            获取本地当前时间(无毫秒)
+            :return: example '2021-01-27 09:56:44' 
         """
         return dateTimeUtil.getLocalDateTime().replace(microsecond=0)    
     
     @staticmethod
     def getIsoLDTWithoutMS():
         """
-            获取当前本地ISO 8601格式的时间(无毫秒) getIsoLocalDateTime
-        :return:
+            getIsoLocalDateTime
+            获取当前本地ISO 8601格式的时间(无毫秒) 
+        :return: example '2021-01-27T09:54:55' 
         """
         return dateTimeUtil.getLDTWithoutMS().isoformat()
 
@@ -43,11 +47,22 @@ class dateTimeUtil:
         """
             获取指定天数前本地ISO 8601格式的时间(无毫秒)
         :param daysForAgo: 天数
-        :return:
+        :return: example '2021-01-20T09:48:32' 
         """
         return (dateTimeUtil.getLocalDateTime()- datetime.timedelta(days=daysForAgo)).replace(microsecond=0).isoformat()
 
+    @staticmethod
+    def getIsoLocalDateAgo(daysForAgo=0):
+        """
+            获取指定天数前本地ISO 8601格式的日期(不包含时间)
+        :param daysForAgo: 天数
+        :return: example '2021-01-20'
+        """
+        return  (dateTimeUtil.getLocalDateTime()- datetime.timedelta(days=daysForAgo)).replace(microsecond=0).date().isoformat()   
+
 if __name__ == '__main__':
+    print(dateTimeUtil.getLocalDateTime())
+    print(dateTimeUtil.getLDTWithoutMS())
     print(dateTimeUtil.getIsoLDTWithoutMS())
     print(dateTimeUtil.getLocalDataTimeWithFormat('%Y-%m-%d'))
     print(dateTimeUtil.getIsoLocalDateTimeAgo(1))
